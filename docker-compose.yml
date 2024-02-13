@@ -4,16 +4,7 @@ services:
   pdf-field-parser:
     restart: always
     build: .
-    networks:
-      - ${TRAEFIK_NETWORK:-web}
+    ports:
+      - 127.0.0.1:8012:8012
     env_file:
       - .env
-    labels:
-      traefik.docker.network: ${TRAEFIK_NETWORK:-web}
-      traefik.http.routers.pdf-field-parser.rule: Host(`${SITE_URL:-pdf-field-parser.example.test}`)
-      traefik.http.routers.pdf-field-parser.tls: ${TLS:-true}
-      traefik.http.routers.pdf-field-parser.tls.certresolver: ${CERTRESOLVER:-letsencrypt}
-
-networks:
-  web:
-    external: true
