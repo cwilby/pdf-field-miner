@@ -1,43 +1,7 @@
 from flask import Flask, request, jsonify
-import fitz
+import fitz  # PyMuPDF
 import os
-
-def extract_form_field_positions(pdf_path):
-    pages = []
-    
-    field_positions = []
-    
-    document = fitz.open(pdf_path)
-    
-    for page in document:
-        pages.append({
-            'number': page.number,
-            'rect': {
-                'offset_left': page.rect.x0,
-                'offset_top': page.rect.y0,
-                'width': page.rect.width,
-                'height': page.rect.height
-            }
-        })
-        for field in page.widgets():
-            field_positions.append({
-                'field_name': field.field_name,
-                'field_label': field.field_label,
-                'field_type': field.field_type,
-                'rect': {
-                    'offset_left': field.rect.x0,
-                    'offset_top': field.rect.y0,
-                    'width': field.rect.width,
-                    'height': field.rect.height
-                }
-            })
-    
-    document.close()
-    
-    return {
-        'pages': pages,
-        'fields': field_positions
-    }
+import tempfile
 
 app = Flask(__name__)
 
@@ -47,19 +11,43 @@ def index():
 
 @app.route('/extract-fields', methods=['POST'])
 def extract_fields():
-    # Save the uploaded file
-    pdf_file = request.files['file']
-    pdf_filename = os.path.join('/tmp', pdf_file.filename)
-    pdf_file.save(pdf_filename)
+    if 'file' not in request.files:
+        return jsonify(error="No file part"), 400
     
-    # Extract field positions
-    fields_data = extract_form_field_positions(pdf_filename)
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify(error="No selected file"), 400
     
-    # Remove the temporary file
-    os.remove(pdf_filename)
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        file_path = temp_file.name
+        file.save(temp_file)
+
+    try:
+        with fitz.open(file_path) as document:
+            pages = [
+                {
+                    'number': page.number,
+                    'w': page.rect.width,
+                    'h': page.rect.height,
+                    'fields': [
+                        {
+                            'name': field.field_name,
+                            'label': field.field_label,
+                            'type': field.field_type,
+                            'x': field.rect.x0,
+                            'y': field.rect.y0,
+                            'w': field.rect.width,
+                            'h': field.rect.height
+                        }
+                        for field in page.widgets()
+                    ]
+                }
+                for page in document
+            ]
+    finally:
+        os.remove(file_path)
     
-    # Return the field data
-    return jsonify(fields_data)
+    return jsonify(pages)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
