@@ -34,7 +34,7 @@ def extract_fields():
                             'name': field.field_name,
                             'label': field.field_label,
                             'type': field.field_type,
-                            'choice_values': field.choice_values,
+                            'on_state': field.on_state(),
                             'x': field.rect.x0,
                             'y': field.rect.y0,
                             'w': field.rect.width,
